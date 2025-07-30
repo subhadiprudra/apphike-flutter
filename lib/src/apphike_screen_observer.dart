@@ -128,35 +128,14 @@ class ApphikeScreenObserver extends NavigatorObserver {
     final name = route.settings.name;
     if (name != null && name.isNotEmpty) return name;
 
-    // Fallback to route type if no name is provided
-    try {
-      // Try to extract a meaningful name from the route type
-      final routeType = route.runtimeType.toString();
-
-      // Handle common route types
-      if (routeType.contains('MaterialPageRoute')) {
-        return 'MaterialPageRoute';
-      } else if (routeType.contains('CupertinoPageRoute')) {
-        return 'CupertinoPageRoute';
-      } else if (routeType.contains('PageRoute')) {
-        return 'PageRoute';
-      } else if (routeType.contains('ModalRoute')) {
-        return 'ModalRoute';
-      }
-
-      // Generic fallback
-      return routeType.isNotEmpty ? routeType : 'UnknownRoute';
-    } catch (e) {
-      // Ultimate fallback if even route type extraction fails
-      debugPrint('⚠️ Warning: Could not determine route name: $e');
-      debugPrint('''
+    debugPrint('⚠️ Warning: Could not determine route name');
+    debugPrint('''
   💡 Tip: Add RouteSettings to your routes for better tracking:
   MaterialPageRoute(
     builder: (context) => YourScreen(),
     settings: RouteSettings(name: '/your-screen-name'),
   )
   ''');
-      return 'UnknownRoute';
-    }
+    return 'UnknownRoute';
   }
 }
