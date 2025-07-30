@@ -8,17 +8,26 @@ class ApphikeScreenObserver extends NavigatorObserver {
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     try {
       final screenName = _getRouteName(route);
-      debugPrint('🟢 Route Pushed: $screenName');
-      ApphikeCore.onScreenPushed(screenName);
+      if (_shouldTrackRoute(screenName)) {
+        debugPrint('🟢 Route Pushed: $screenName');
+        ApphikeCore.onScreenPushed(screenName);
+      } else {
+        debugPrint('⏭️ Skipping unknown route push: $screenName');
+      }
 
       if (previousRoute != null) {
         final previousScreenName = _getRouteName(previousRoute);
-        debugPrint('Previous Route: $previousScreenName');
-        ApphikeCore.onScreenPopped(previousScreenName);
+        if (_shouldTrackRoute(previousScreenName)) {
+          debugPrint('Previous Route: $previousScreenName');
+          ApphikeCore.onScreenPopped(previousScreenName);
+        } else {
+          debugPrint(
+            '⏭️ Skipping unknown previous route pop: $previousScreenName',
+          );
+        }
       }
     } catch (e) {
-      debugPrint('⚠️ Error in didPush: $e');
-      ApphikeCore.onScreenPushed('ErrorRoute');
+      debugPrint('⚠️ Error in didPush: $e - Skipping route tracking');
     }
   }
 
@@ -27,17 +36,26 @@ class ApphikeScreenObserver extends NavigatorObserver {
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     try {
       final poppedScreen = _getRouteName(route);
-      debugPrint('🔴 Route Popped: $poppedScreen');
-      ApphikeCore.onScreenPopped(poppedScreen);
+      if (_shouldTrackRoute(poppedScreen)) {
+        debugPrint('🔴 Route Popped: $poppedScreen');
+        ApphikeCore.onScreenPopped(poppedScreen);
+      } else {
+        debugPrint('⏭️ Skipping unknown route pop: $poppedScreen');
+      }
 
       if (previousRoute != null) {
         final currentScreenName = _getRouteName(previousRoute);
-        debugPrint('New current Route: $currentScreenName');
-        ApphikeCore.onScreenPushed(currentScreenName);
+        if (_shouldTrackRoute(currentScreenName)) {
+          debugPrint('New current Route: $currentScreenName');
+          ApphikeCore.onScreenPushed(currentScreenName);
+        } else {
+          debugPrint(
+            '⏭️ Skipping unknown current route push: $currentScreenName',
+          );
+        }
       }
     } catch (e) {
-      debugPrint('⚠️ Error in didPop: $e');
-      ApphikeCore.onScreenPopped('ErrorRoute');
+      debugPrint('⚠️ Error in didPop: $e - Skipping route tracking');
     }
   }
 
@@ -50,18 +68,20 @@ class ApphikeScreenObserver extends NavigatorObserver {
       debugPrint('🔁 Route Replaced: $oldScreenName → $newScreenName');
 
       // Track the old route as popped
-      if (oldRoute != null) {
+      if (oldRoute != null && _shouldTrackRoute(oldScreenName)) {
         ApphikeCore.onScreenPopped(oldScreenName);
+      } else if (oldRoute != null) {
+        debugPrint('⏭️ Skipping unknown old route pop: $oldScreenName');
       }
 
       // Track the new route as pushed
-      if (newRoute != null) {
+      if (newRoute != null && _shouldTrackRoute(newScreenName)) {
         ApphikeCore.onScreenPushed(newScreenName);
+      } else if (newRoute != null) {
+        debugPrint('⏭️ Skipping unknown new route push: $newScreenName');
       }
     } catch (e) {
-      debugPrint('⚠️ Error in didReplace: $e');
-      ApphikeCore.onScreenPopped('ErrorRoute');
-      ApphikeCore.onScreenPushed('ErrorRoute');
+      debugPrint('⚠️ Error in didReplace: $e - Skipping route tracking');
     }
   }
 
@@ -70,12 +90,35 @@ class ApphikeScreenObserver extends NavigatorObserver {
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     try {
       final removedScreen = _getRouteName(route);
-      debugPrint('🗑️ Route Removed: $removedScreen');
-      ApphikeCore.onScreenPopped(removedScreen);
+      if (_shouldTrackRoute(removedScreen)) {
+        debugPrint('🗑️ Route Removed: $removedScreen');
+        ApphikeCore.onScreenPopped(removedScreen);
+      } else {
+        debugPrint('⏭️ Skipping unknown route removal: $removedScreen');
+      }
     } catch (e) {
-      debugPrint('⚠️ Error in didRemove: $e');
-      ApphikeCore.onScreenPopped('ErrorRoute');
+      debugPrint('⚠️ Error in didRemove: $e - Skipping route tracking');
     }
+  }
+
+  /// Determines if a route should be tracked based on its name
+  bool _shouldTrackRoute(String routeName) {
+    // Skip tracking for unknown, error, or null routes
+    if (routeName == 'UnknownRoute' ||
+        routeName == 'ErrorRoute' ||
+        routeName == 'null') {
+      return false;
+    }
+
+    // Skip tracking for generic route types without specific names
+    if (routeName == 'MaterialPageRoute' ||
+        routeName == 'CupertinoPageRoute' ||
+        routeName == 'PageRoute' ||
+        routeName == 'ModalRoute') {
+      return false;
+    }
+
+    return true;
   }
 
   String _getRouteName(Route<dynamic>? route) {
