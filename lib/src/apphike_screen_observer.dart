@@ -131,10 +131,10 @@ class ApphikeScreenObserver extends NavigatorObserver {
     debugPrint('⚠️ Warning: Could not determine route name');
     debugPrint('''
   💡 Tip: Add RouteSettings to your routes for better tracking:
-  MaterialPageRoute(
-    builder: (context) => YourScreen(),
-    settings: RouteSettings(name: '/your-screen-name'),
-  )
+    MaterialPageRoute(
+      builder: (context) => YourScreen(),
+      settings: RouteSettings(name: '/your-screen-name'),
+    )
   ''');
     return 'UnknownRoute';
   }
