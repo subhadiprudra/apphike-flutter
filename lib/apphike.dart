@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:apphike/src/apphike_core.dart';
 import 'package:flutter/material.dart';
 
@@ -71,8 +73,19 @@ class _FeedbackNestState extends State<Apphike>
 
     // Set up error handling
     FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      debugPrint('FlutterError caught in FeedbackNest: ${details.exception}');
+      debugPrint('FlutterError caught: ${details.exception}');
+      debugPrint('🔴 1Flutter Error Caught:');
+      debugPrint('  Exception: ${details.exception}');
+      debugPrint('  Library: ${details.library}');
+      debugPrint('  Context: ${details.context}');
+      debugPrint('  Stack trace: ${details.stack}');
+      debugPrint('  String: ${details.toDiagnosticsNode()}');
+    };
+
+    PlatformDispatcher.instance.onError = (error, stack) {
+      // Log the error or send it to a crash reporting service
+      print('Unhandled Platform Error: $error\n$stack');
+      return true; // Return true to indicate the error is handled and prevent app termination
     };
   }
 
@@ -81,9 +94,7 @@ class _FeedbackNestState extends State<Apphike>
     super.didChangeDependencies();
     final ModalRoute<void>? currentRoute = ModalRoute.of(context);
     if (currentRoute != null) {
-      debugPrint(
-        'FeedbackNest subscribed to route: ${currentRoute.settings.name}',
-      );
+      debugPrint('Apphike subscribed to route: ${currentRoute.settings.name}');
     }
   }
 

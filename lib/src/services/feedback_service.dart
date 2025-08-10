@@ -1,14 +1,14 @@
-import 'package:apphike/src/services/session_analytics_service.dart';
+import 'package:apphike/src/services/common_analytics_service.dart';
 import 'package:apphike/src/config/constants.dart';
 import 'package:apphike/src/models/feedback.dart';
 
 /// Service for handling user feedback functionality
 class FeedbackService {
-  /// Session analytics service instance
-  final SessionAnalyticsService _sessionService;
+  /// Common analytics service instance
+  final CommonAnalyticsService _commonService;
 
   /// Private constructor for singleton
-  FeedbackService._() : _sessionService = SessionAnalyticsService.instance;
+  FeedbackService._() : _commonService = CommonAnalyticsService.instance;
 
   /// Singleton instance
   static final FeedbackService _instance = FeedbackService._();
@@ -21,23 +21,23 @@ class FeedbackService {
     required int rating,
     String? review,
   }) async {
-    if (!_sessionService.isInitialized) {
+    if (!_commonService.isInitialized) {
       throw Exception("FeedbackNest is not initialized. Call init() first.");
     }
 
     final feedback = RatingFeedback(
       rating: rating,
       review: review,
-      userId: _sessionService.userIdentifier,
-      appVersion: _sessionService.appVersion,
-      platform: _sessionService.deviceInfo.deviceOS,
-      deviceModel: _sessionService.deviceInfo.deviceName,
-      deviceOsVersion: _sessionService.deviceInfo.deviceOSVersion,
+      userId: _commonService.userIdentifier,
+      appVersion: _commonService.appVersion,
+      platform: _commonService.deviceInfo.deviceOS,
+      deviceModel: _commonService.deviceInfo.deviceName,
+      deviceOsVersion: _commonService.deviceInfo.deviceOSVersion,
     );
 
-    await _sessionService.apiService.post(
+    await _commonService.apiService.post(
       ApphikeConstants.endpointReviewSubmit,
-      _sessionService.apiKey,
+      _commonService.apiKey,
       feedback.toJson(),
     );
   }
@@ -57,7 +57,7 @@ class FeedbackService {
       );
     }
 
-    if (!_sessionService.isInitialized) {
+    if (!_commonService.isInitialized) {
       throw Exception("FeedbackNest is not initialized. Call init() first.");
     }
 
@@ -66,20 +66,20 @@ class FeedbackService {
       type: normalizedType,
       email: email,
       files: files,
-      userId: _sessionService.userIdentifier,
-      appVersion: _sessionService.appVersion,
-      platform: _sessionService.deviceInfo.deviceOS,
-      deviceModel: _sessionService.deviceInfo.deviceName,
-      deviceOsVersion: _sessionService.deviceInfo.deviceOSVersion,
+      userId: _commonService.userIdentifier,
+      appVersion: _commonService.appVersion,
+      platform: _commonService.deviceInfo.deviceOS,
+      deviceModel: _commonService.deviceInfo.deviceName,
+      deviceOsVersion: _commonService.deviceInfo.deviceOSVersion,
     );
 
     // Convert files to CrossPlatformFile format
     final crossPlatformFiles = await feedback.getFormattedFiles();
 
     // Submit the communication
-    await _sessionService.apiService.postWithMultipart(
+    await _commonService.apiService.postWithMultipart(
       endpoint: ApphikeConstants.endpointCommunicationSubmit,
-      apiKey: _sessionService.apiKey,
+      apiKey: _commonService.apiKey,
       fields: feedback.toFieldMap(),
       files: crossPlatformFiles.isNotEmpty ? crossPlatformFiles : null,
     );

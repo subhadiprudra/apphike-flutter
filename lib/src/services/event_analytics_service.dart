@@ -1,47 +1,19 @@
 import 'package:flutter/foundation.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:apphike/src/config/constants.dart';
-import 'package:apphike/src/models/device_info.dart';
-import 'package:apphike/src/services/api_service.dart';
-import 'package:apphike/src/services/device_info_service.dart';
+import 'package:apphike/src/services/common_analytics_service.dart';
 
 /// Service for tracking custom events
 class EventAnalyticsService {
-  /// Shared preferences instance
-  late final SharedPreferences _prefs;
-
-  /// Device information
-  late final DeviceInfo _deviceInfo;
-
-  /// API service for making requests
-  late final ApiService _apiService;
-
-  /// API key
-  late final String _apiKey;
-
-  /// User-provided identifier
-  late final String _userIdentifier;
-
-  /// Application version
-  late final String _appVersion;
-
-  /// Application package name
-  late final String _appPackageName;
-
-  /// Internal user ID
-  late String _userId;
-
-  /// Current session ID
-  late String _sessionId;
+  /// Common analytics service instance
+  final CommonAnalyticsService _commonService;
 
   /// Whether the service has been initialized
   bool _isInitialized = false;
 
   /// Private constructor for singleton
-  EventAnalyticsService._();
+  EventAnalyticsService._() : _commonService = CommonAnalyticsService.instance;
 
   /// Singleton instance
   static final EventAnalyticsService _instance = EventAnalyticsService._();
@@ -61,33 +33,14 @@ class EventAnalyticsService {
     }
 
     try {
-      // Initialize shared preferences
-      _prefs = await SharedPreferences.getInstance();
-
-      // Store API key and user identifier
-      _apiKey = apiKey;
-      _userIdentifier = userIdentifier;
-
-      // Initialize API service
-      _apiService = ApiService(baseUrl: baseUrl ?? ApphikeConstants.apiBaseUrl);
-
-      // Get device information
-      _deviceInfo = await DeviceInfoService.getDeviceInfo();
-
-      // Get application version and package name
-      final packageInfo = await PackageInfo.fromPlatform();
-      _appVersion = packageInfo.version;
-      _appPackageName = packageInfo.packageName;
-
-      // Get or create user ID
-      _userId =
-          _prefs.getString(ApphikeConstants.prefKeyUserId) ?? const Uuid().v4();
-      await _prefs.setString(ApphikeConstants.prefKeyUserId, _userId);
-
-      // Get current session ID (from session analytics service)
-      _sessionId =
-          _prefs.getString(ApphikeConstants.prefKeySessionId) ??
-          const Uuid().v4();
+      // Initialize common analytics service if not already done
+      if (!_commonService.isInitialized) {
+        await _commonService.initialize(
+          apiKey: apiKey,
+          userIdentifier: userIdentifier,
+          baseUrl: baseUrl,
+        );
+      }
 
       _isInitialized = true;
       debugPrint('EventAnalyticsService initialized successfully');
@@ -102,7 +55,7 @@ class EventAnalyticsService {
     required String eventName,
     String? eventData,
   }) async {
-    if (!_isInitialized) {
+    if (!_isInitialized || !_commonService.isInitialized) {
       debugPrint(
         'EventAnalyticsService not initialized. Call initialize() first.',
       );
@@ -113,17 +66,9 @@ class EventAnalyticsService {
       // Generate unique event ID
       final eventId = const Uuid().v4();
 
-      // Prepare event data
+      // Build common payload and add event-specific data
       final Map<String, dynamic> data = {
-        'id': eventId,
-        'session_id': _sessionId,
-        'app_id': _appPackageName,
-        'user_id': _userId,
-        'user_identifier': _userIdentifier,
-        'platform': _deviceInfo.deviceOS,
-        'app_version': _appVersion,
-        'device_model': _deviceInfo.deviceName,
-        'device_os_version': _deviceInfo.deviceOSVersion,
+        ..._commonService.buildCommonPayload(id: eventId),
         'event_name': eventName,
       };
 
@@ -133,9 +78,9 @@ class EventAnalyticsService {
       }
 
       // Send event to API
-      await _apiService.post(
+      await _commonService.apiService.post(
         ApphikeConstants.endpointEventTrack,
-        _apiKey,
+        _commonService.apiKey,
         data,
       );
 
@@ -150,8 +95,8 @@ class EventAnalyticsService {
   bool get isInitialized => _isInitialized;
 
   /// Get current user ID
-  String? get userId => _isInitialized ? _userId : null;
+  String? get userId => _isInitialized ? _commonService.userId : null;
 
   /// Get current session ID
-  String? get sessionId => _isInitialized ? _sessionId : null;
+  String? get sessionId => _isInitialized ? _commonService.sessionId : null;
 }

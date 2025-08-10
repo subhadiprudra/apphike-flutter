@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:apphike/src/config/constants.dart';
-import 'package:apphike/src/services/session_analytics_service.dart';
+import 'package:apphike/src/services/common_analytics_service.dart';
 
 /// Service for tracking screen analytics
 class ScreenAnalyticsService {
@@ -15,12 +15,11 @@ class ScreenAnalyticsService {
   /// Whether the app is paused
   bool _isPaused = false;
 
-  /// Session analytics service instance
-  final SessionAnalyticsService _sessionService;
+  /// Common analytics service instance
+  final CommonAnalyticsService _commonService;
 
   /// Private constructor for singleton
-  ScreenAnalyticsService._()
-    : _sessionService = SessionAnalyticsService.instance;
+  ScreenAnalyticsService._() : _commonService = CommonAnalyticsService.instance;
 
   /// Singleton instance
   static final ScreenAnalyticsService _instance = ScreenAnalyticsService._();
@@ -30,7 +29,7 @@ class ScreenAnalyticsService {
 
   /// Handle screen push event
   void onScreenPushed(String screenName) {
-    if (!_sessionService.isInitialized) {
+    if (!_commonService.isInitialized) {
       // Queue the event for later processing
       _pendingScreenEvents.add({
         'type': 'push',
@@ -41,7 +40,7 @@ class ScreenAnalyticsService {
     }
 
     _screenData[screenName] = {
-      "session_id": _sessionService.sessionId,
+      "session_id": _commonService.sessionId,
       "timestamp": DateTime.now().toUtc().toIso8601String(),
       "paused_duration": 0,
     };
@@ -49,7 +48,7 @@ class ScreenAnalyticsService {
 
   /// Handle screen pop event
   void onScreenPopped(String screenName) {
-    if (!_sessionService.isInitialized) {
+    if (!_commonService.isInitialized) {
       // Queue the event for later processing
       _pendingScreenEvents.add({
         'type': 'pop',
@@ -105,7 +104,7 @@ class ScreenAnalyticsService {
   /// Save screen data to shared preferences
   Future<void> _saveScreenDataToPrefs() async {
     final String screenDataJson = jsonEncode(_screenData);
-    await _sessionService.prefs.setString(
+    await _commonService.prefs.setString(
       ApphikeConstants.prefKeyScreenData,
       screenDataJson,
     );
@@ -113,7 +112,7 @@ class ScreenAnalyticsService {
 
   /// Handle previous session's screen data
   Future<void> handlePreviousSessionScreenData() async {
-    final String? screenDataJson = _sessionService.prefs.getString(
+    final String? screenDataJson = _commonService.prefs.getString(
       ApphikeConstants.prefKeyScreenData,
     );
 
@@ -131,7 +130,7 @@ class ScreenAnalyticsService {
             final pausedDuration = screenInfo["paused_duration"] ?? 0;
 
             // Calculate duration from when screen was pushed until app was paused
-            final String? lastEndTime = _sessionService.prefs.getString(
+            final String? lastEndTime = _commonService.prefs.getString(
               ApphikeConstants.prefKeySessionEndTime,
             );
             if (lastEndTime != null && lastEndTime.isNotEmpty) {
@@ -148,10 +147,10 @@ class ScreenAnalyticsService {
         }
 
         // Clear the saved screen data
-        await _sessionService.prefs.remove(ApphikeConstants.prefKeyScreenData);
+        await _commonService.prefs.remove(ApphikeConstants.prefKeyScreenData);
       } catch (e) {
         debugPrint("Error handling previous session screen data: $e");
-        await _sessionService.prefs.remove(ApphikeConstants.prefKeyScreenData);
+        await _commonService.prefs.remove(ApphikeConstants.prefKeyScreenData);
       }
     }
   }
@@ -161,23 +160,19 @@ class ScreenAnalyticsService {
     String screenName,
     Map<String, dynamic> screenInfo,
   ) async {
-    if (_sessionService.isInitialized) {
+    if (_commonService.isInitialized) {
+      // Build common payload and add screen-specific data
       final Map<String, dynamic> data = {
+        ..._commonService.buildCommonPayload(),
         "screen_name": screenName,
         "type": "end",
-        "user_id": _sessionService.userId,
-        "user_identifier": _sessionService.userIdentifier,
-        "app_version": _sessionService.appVersion,
-        "platform": _sessionService.deviceInfo.deviceOS,
-        "device_model": _sessionService.deviceInfo.deviceName,
-        "device_os_version": _sessionService.deviceInfo.deviceOSVersion,
         ...screenInfo,
       };
 
       try {
-        await _sessionService.apiService.post(
+        await _commonService.apiService.post(
           ApphikeConstants.endpointScreenTrack,
-          _sessionService.apiKey,
+          _commonService.apiKey,
           data,
         );
         debugPrint(
@@ -198,7 +193,7 @@ class ScreenAnalyticsService {
 
       if (eventType == 'push') {
         _screenData[screenName] = {
-          "session_id": _sessionService.sessionId,
+          "session_id": _commonService.sessionId,
           "timestamp": timestamp,
           "paused_duration": 0,
         };

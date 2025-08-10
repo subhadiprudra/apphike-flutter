@@ -1,36 +1,15 @@
-import 'package:flutter/foundation.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:apphike/src/config/constants.dart';
 import 'package:apphike/src/models/device_info.dart';
-import 'package:apphike/src/models/session_data.dart';
 import 'package:apphike/src/services/api_service.dart';
-import 'package:apphike/src/services/device_info_service.dart';
+import 'package:apphike/src/services/common_analytics_service.dart';
 
 /// Service for handling session analytics
 class SessionAnalyticsService {
-  /// Shared preferences instance
-  late final SharedPreferences _prefs;
-
-  /// Device information
-  late final DeviceInfo _deviceInfo;
-
-  /// API service for making requests
-  late final ApiService _apiService;
-
-  /// API key
-  late final String _apiKey;
-
-  /// User-provided identifier
-  late final String _userIdentifier;
-
-  /// Application version
-  late final String _appVersion;
-
-  /// Internal user ID
-  late String _userId;
+  /// Common analytics service instance
+  final CommonAnalyticsService _commonService;
 
   /// Session start time
   late final String _sessionStartTime;
@@ -51,7 +30,8 @@ class SessionAnalyticsService {
   DateTime? _appPausedTime;
 
   /// Private constructor for singleton
-  SessionAnalyticsService._();
+  SessionAnalyticsService._()
+    : _commonService = CommonAnalyticsService.instance;
 
   /// Singleton instance
   static final SessionAnalyticsService _instance = SessionAnalyticsService._();
@@ -68,59 +48,56 @@ class SessionAnalyticsService {
   }) async {
     if (_isInitialized) return;
 
+    // Initialize common analytics service first
+    await _commonService.initialize(
+      apiKey: apiKey,
+      userIdentifier: userIdentifier,
+    );
+
     _sessionStartTime = DateTime.now().toUtc().toIso8601String();
     _sessionDurationGap = 0;
-    _prefs = await SharedPreferences.getInstance();
-    _deviceInfo = deviceInfo ?? await _getDeviceInfo();
-    _apiKey = apiKey;
-    _userIdentifier = userIdentifier;
-    _apiService =
-        apiService ?? ApiService(baseUrl: ApphikeConstants.apiBaseUrl);
-
-    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    _appVersion = packageInfo.version;
 
     // Initialize session IDs
-    _lastSessionId = _prefs.getString(ApphikeConstants.prefKeySessionId) ?? '';
+    _lastSessionId =
+        _commonService.prefs.getString(ApphikeConstants.prefKeySessionId) ?? '';
     _sessionId = const Uuid().v4();
-    _prefs.setString(ApphikeConstants.prefKeySessionId, _sessionId);
+    await _commonService.prefs.setString(
+      ApphikeConstants.prefKeySessionId,
+      _sessionId,
+    );
 
-    // Initialize user ID
-    _userId = _prefs.getString(ApphikeConstants.prefKeyUserId) ?? '';
-    if (_userId.isEmpty) {
-      _userId = Uuid().v4();
-      _prefs.setString(ApphikeConstants.prefKeyUserId, _userId);
-    }
+    // Update session ID in common service
+    _commonService.updateSessionId(_sessionId);
 
     // Calculate last session duration
     int lastSessionDuration = _calculateLastSessionDuration();
 
     // Save session start time and reset gap
-    _prefs.setString(
+    await _commonService.prefs.setString(
       ApphikeConstants.prefKeySessionStartTime,
       _sessionStartTime,
     );
-    _prefs.setInt(ApphikeConstants.prefKeySessionDurationGap, 0);
-
-    // Create session data
-    final sessionData = SessionData(
-      id: _sessionId,
-      userId: _userId,
-      userIdentifier: _userIdentifier,
-      startTime: _sessionStartTime,
-      appVersion: _appVersion,
-      platform: _deviceInfo.deviceOS,
-      deviceModel: _deviceInfo.deviceName,
-      deviceOsVersion: _deviceInfo.deviceOSVersion,
-      lastSessionId: _lastSessionId.isNotEmpty ? _lastSessionId : null,
-      lastSessionDuration: lastSessionDuration > 0 ? lastSessionDuration : null,
+    await _commonService.prefs.setInt(
+      ApphikeConstants.prefKeySessionDurationGap,
+      0,
     );
 
+    // Build session payload using common service
+    final Map<String, dynamic> data = {
+      ..._commonService.buildCommonPayload(id: _sessionId),
+      "type": "start",
+      "session_start_time": _sessionStartTime,
+      if (_lastSessionId.isNotEmpty && lastSessionDuration > 0) ...{
+        "last_session_id": _lastSessionId,
+        "last_session_duration": lastSessionDuration,
+      },
+    };
+
     // Track session start
-    _apiService.post(
+    _commonService.apiService.post(
       ApphikeConstants.endpointSessionTrack,
-      _apiKey,
-      sessionData.toJson(),
+      _commonService.apiKey,
+      data,
     );
 
     _isInitialized = true;
@@ -130,7 +107,7 @@ class SessionAnalyticsService {
   void handleLifecycleChange(bool isPaused) {
     if (isPaused) {
       _appPausedTime = DateTime.now().toUtc();
-      _prefs.setString(
+      _commonService.prefs.setString(
         ApphikeConstants.prefKeySessionEndTime,
         _appPausedTime!.toIso8601String(),
       );
@@ -140,7 +117,7 @@ class SessionAnalyticsService {
           .difference(_appPausedTime!)
           .inSeconds;
       _sessionDurationGap += gapDuration;
-      _prefs.setInt(
+      _commonService.prefs.setInt(
         ApphikeConstants.prefKeySessionDurationGap,
         _sessionDurationGap,
       );
@@ -151,11 +128,20 @@ class SessionAnalyticsService {
   /// Calculate the duration of the previous session
   int _calculateLastSessionDuration() {
     int lastSessionDurationGap =
-        _prefs.getInt(ApphikeConstants.prefKeySessionDurationGap) ?? 0;
+        _commonService.prefs.getInt(
+          ApphikeConstants.prefKeySessionDurationGap,
+        ) ??
+        0;
     String lastSessionStartTime =
-        _prefs.getString(ApphikeConstants.prefKeySessionStartTime) ?? '';
+        _commonService.prefs.getString(
+          ApphikeConstants.prefKeySessionStartTime,
+        ) ??
+        '';
     String lastSessionEndTime =
-        _prefs.getString(ApphikeConstants.prefKeySessionEndTime) ?? '';
+        _commonService.prefs.getString(
+          ApphikeConstants.prefKeySessionEndTime,
+        ) ??
+        '';
     int lastSessionDuration = 0;
 
     if (lastSessionStartTime.isNotEmpty && lastSessionEndTime.isNotEmpty) {
@@ -169,19 +155,6 @@ class SessionAnalyticsService {
     return lastSessionDuration;
   }
 
-  /// Get device info (helper method)
-  Future<DeviceInfo> _getDeviceInfo() async {
-    try {
-      return await DeviceInfoService.getDeviceInfo();
-    } catch (e) {
-      return const DeviceInfo(
-        deviceName: 'Unknown Device',
-        deviceOS: 'Unknown OS',
-        deviceOSVersion: 'Unknown Version',
-      );
-    }
-  }
-
   /// Check if the service has been initialized
   bool get isInitialized => _isInitialized;
 
@@ -189,23 +162,23 @@ class SessionAnalyticsService {
   String get sessionId => _sessionId;
 
   /// Get the user ID
-  String get userId => _userId;
+  String get userId => _commonService.userId;
 
   /// Get the user identifier
-  String get userIdentifier => _userIdentifier;
+  String get userIdentifier => _commonService.userIdentifier;
 
   /// Get the app version
-  String get appVersion => _appVersion;
+  String get appVersion => _commonService.appVersion;
 
   /// Get the device info
-  DeviceInfo get deviceInfo => _deviceInfo;
+  DeviceInfo get deviceInfo => _commonService.deviceInfo;
 
   /// Get the API key
-  String get apiKey => _apiKey;
+  String get apiKey => _commonService.apiKey;
 
   /// Get the API service
-  ApiService get apiService => _apiService;
+  ApiService get apiService => _commonService.apiService;
 
   /// Get the shared preferences instance
-  SharedPreferences get prefs => _prefs;
+  SharedPreferences get prefs => _commonService.prefs;
 }

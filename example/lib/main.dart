@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:apphike/apphike.dart';
 import 'package:apphike/src/apphike_core.dart';
 import 'package:apphike/src/apphike_screen_observer.dart';
+import 'dart:ui';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 
@@ -120,12 +124,34 @@ class _HomePageState extends State<HomePage> {
                     const Text(
                       'Counter with Event Tracking',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 50,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text('Each tap tracks a custom event'),
+                    Container(
+                      width: 100,
+                      height: 100,
+                      child: _counter > 5
+                          ? Row(
+                              children: [
+                                Container(
+                                  width:
+                                      200, // This will overflow the 100px parent
+                                  height: 50,
+                                  color: Colors.red.shade100,
+                                  child: const Text(
+                                    'OVERFLOW ERROR! This text is too wide for the container and will cause a render overflow.',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'Each tap tracks a custom event. Click more than 5 times to trigger overflow error!',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       '$_counter',
@@ -313,6 +339,194 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 16),
 
+            // Error Testing Section
+            Card(
+              color: Colors.red.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Error Testing',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Test FlutterError.onError handling',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Render Flex Overflow Error
+                    ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Render Overflow Error'),
+                            content: SizedBox(
+                              width: 100, // Very small width
+                              height: 50,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 200, // Much larger than parent
+                                    height: 40,
+                                    color: Colors.red,
+                                    child: const Text('This will overflow!'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Overflow Error'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Null Widget Error
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ErrorScreen(),
+                            settings: const RouteSettings(name: '/error'),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Go to Error Screen'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Division by Zero Error (caught by Flutter)
+                    ElevatedButton(
+                      onPressed: () {
+                        try {
+                          // This will cause a build error
+                          throw FlutterError(
+                            'Manual Flutter Error for Testing',
+                          );
+                        } catch (e) {
+                          // Re-throw as FlutterError to test error handling
+                          FlutterError.reportError(
+                            FlutterErrorDetails(
+                              exception: e,
+                              library: 'apphike_demo',
+                              context: ErrorDescription('Manual error trigger'),
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Error reported to FlutterError.onError',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Manual Error'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Widget State Error
+                    ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Widget Error Demo'),
+                            content: SizedBox(
+                              height: 100,
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    'This will trigger a widget error:',
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // This should cause a flex overflow error
+                                  Row(
+                                    children: List.generate(
+                                      10,
+                                      (index) => Container(
+                                        width: 50,
+                                        height: 30,
+                                        margin: const EdgeInsets.all(2),
+                                        color: Colors.red.shade200,
+                                        child: Text('$index'),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Widget Error'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Widget State Error
+                    ElevatedButton(
+                      onPressed: () {
+                        // Try to access widget after dispose (this might cause an error)
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (mounted) {
+                            setState(() {
+                              // Force an error by trying to build invalid widget
+                              _counter =
+                                  -1; // This will be used to trigger error in ErrorWidget
+                            });
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger State Error'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // Info Section
             Card(
               color: Colors.blue.shade50,
@@ -405,6 +619,222 @@ class SecondScreen extends StatelessWidget {
                 );
               },
               child: const Text('Track Action on This Screen'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ErrorScreen extends StatelessWidget {
+  const ErrorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Error Screen'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Card(
+              color: Colors.red,
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  '⚠️ Error Testing Screen',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Assertion Error Widget
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Assertion Error Test',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        // This will trigger an assertion error
+                        assert(false, 'This is a test assertion error');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Assertion Error'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Null Check Error
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Null Check Error Test',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        try {
+                          String? nullString;
+                          int length = nullString!.length; // This will throw
+                          print(length); // Won't be reached
+                        } catch (e) {
+                          FlutterError.reportError(
+                            FlutterErrorDetails(
+                              exception: e,
+                              library: 'apphike_demo',
+                              context: ErrorDescription(
+                                'Null check error test',
+                              ),
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Null check error reported'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Null Check Error'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Range Error
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Range Error Test',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        try {
+                          List<int> list = [1, 2, 3];
+                          int value = list[10]; // This will throw RangeError
+                          print(value); // Won't be reached
+                        } catch (e) {
+                          FlutterError.reportError(
+                            FlutterErrorDetails(
+                              exception: e,
+                              library: 'apphike_demo',
+                              context: ErrorDescription('Range error test'),
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Range error reported'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                      ),
+                      child: const Text('Trigger Range Error'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Widget with Intentional Error
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Widget Build Error Test',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('This widget has an intentional layout error:'),
+                    const SizedBox(height: 8),
+                    // This will cause a layout error - trying to fit infinite width in finite space
+                    SizedBox(
+                      height: 50,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              width: double.infinity,
+                              color: Colors.red.shade100,
+                              child: const Text(
+                                'This might cause layout issues',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Back Button
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Go Back'),
             ),
           ],
         ),

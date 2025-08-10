@@ -4,6 +4,7 @@ import 'package:apphike/src/services/screen_analytics_service.dart';
 import 'package:apphike/src/services/session_analytics_service.dart';
 import 'package:apphike/src/services/feedback_service.dart';
 import 'package:apphike/src/services/event_analytics_service.dart';
+import 'package:apphike/src/services/common_analytics_service.dart';
 
 /// Main entry point for the FeedbackNest Core functionality
 ///
@@ -19,6 +20,12 @@ class ApphikeCore {
     String userIdentifier = "",
     Map<String, dynamic>? props,
   }) async {
+    // Initialize the common analytics service first
+    await CommonAnalyticsService.instance.initialize(
+      apiKey: apiKey,
+      userIdentifier: userIdentifier,
+    );
+
     // Initialize the session analytics service
     await SessionAnalyticsService.instance.initialize(
       apiKey,
