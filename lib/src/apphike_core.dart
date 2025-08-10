@@ -5,6 +5,7 @@ import 'package:apphike/src/services/session_analytics_service.dart';
 import 'package:apphike/src/services/feedback_service.dart';
 import 'package:apphike/src/services/event_analytics_service.dart';
 import 'package:apphike/src/services/common_analytics_service.dart';
+import 'package:apphike/src/services/crash_analytics_service.dart';
 
 /// Main entry point for the FeedbackNest Core functionality
 ///
@@ -34,6 +35,12 @@ class ApphikeCore {
 
     // Initialize the event analytics service
     await EventAnalyticsService.instance.initialize(
+      apiKey: apiKey,
+      userIdentifier: userIdentifier,
+    );
+
+    // Initialize the crash analytics service
+    await CrashAnalyticsService.instance.initialize(
       apiKey: apiKey,
       userIdentifier: userIdentifier,
     );
@@ -100,6 +107,49 @@ class ApphikeCore {
     await EventAnalyticsService.instance.trackEvent(
       eventName: eventName,
       eventData: eventData,
+    );
+  }
+
+  /// Track a crash or error
+  static Future<void> trackCrash({
+    required String crashType,
+    required String crashMessage,
+    required String stackTrace,
+    String? crashId,
+  }) async {
+    await CrashAnalyticsService.instance.trackCrash(
+      crashType: crashType,
+      crashMessage: crashMessage,
+      stackTrace: stackTrace,
+      crashId: crashId,
+    );
+  }
+
+  /// Track a Flutter error
+  static Future<void> trackFlutterError(
+    FlutterErrorDetails errorDetails,
+  ) async {
+    await CrashAnalyticsService.instance.trackFlutterError(errorDetails);
+  }
+
+  /// Track a platform error (Dart uncaught exception)
+  static Future<void> trackPlatformError(
+    Object error,
+    StackTrace stackTrace,
+  ) async {
+    await CrashAnalyticsService.instance.trackPlatformError(error, stackTrace);
+  }
+
+  /// Track a custom error
+  static Future<void> trackCustomError({
+    required String errorMessage,
+    String? stackTrace,
+    String? errorType,
+  }) async {
+    await CrashAnalyticsService.instance.trackCustomError(
+      errorMessage: errorMessage,
+      stackTrace: stackTrace,
+      errorType: errorType,
     );
   }
 }

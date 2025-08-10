@@ -50,6 +50,45 @@ class Apphike extends StatefulWidget {
   }) async {
     await ApphikeCore.trackEvent(eventName: eventName, eventData: eventData);
   }
+
+  static Future<void> trackCrash({
+    required String crashType,
+    required String crashMessage,
+    required String stackTrace,
+    String? crashId,
+  }) async {
+    await ApphikeCore.trackCrash(
+      crashType: crashType,
+      crashMessage: crashMessage,
+      stackTrace: stackTrace,
+      crashId: crashId,
+    );
+  }
+
+  static Future<void> trackFlutterError(
+    FlutterErrorDetails errorDetails,
+  ) async {
+    await ApphikeCore.trackFlutterError(errorDetails);
+  }
+
+  static Future<void> trackPlatformError(
+    Object error,
+    StackTrace stackTrace,
+  ) async {
+    await ApphikeCore.trackPlatformError(error, stackTrace);
+  }
+
+  static Future<void> trackCustomError({
+    required String errorMessage,
+    String? stackTrace,
+    String? errorType,
+  }) async {
+    await ApphikeCore.trackCustomError(
+      errorMessage: errorMessage,
+      stackTrace: stackTrace,
+      errorType: errorType,
+    );
+  }
 }
 
 class _FeedbackNestState extends State<Apphike>
@@ -80,11 +119,18 @@ class _FeedbackNestState extends State<Apphike>
       debugPrint('  Context: ${details.context}');
       debugPrint('  Stack trace: ${details.stack}');
       debugPrint('  String: ${details.toDiagnosticsNode()}');
+
+      // Track the error
+      ApphikeCore.trackFlutterError(details);
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
       // Log the error or send it to a crash reporting service
       print('Unhandled Platform Error: $error\n$stack');
+
+      // Track the platform error
+      ApphikeCore.trackPlatformError(error, stack);
+
       return true; // Return true to indicate the error is handled and prevent app termination
     };
   }

@@ -25,6 +25,7 @@ class ApphikeConstants {
   static const String endpointSessionTrack = "/analytics/sessions/track";
   static const String endpointScreenTrack = "/analytics/screens/track";
   static const String endpointEventTrack = "/analytics/events/track";
+  static const String endpointCrashTrack = "/analytics/crashes/track";
   static const String endpointReviewSubmit = "/user/submit/review";
   static const String endpointCommunicationSubmit =
       "/user/submit/communication";
